@@ -1,0 +1,70 @@
+#! /usr/bin/env ruby
+require 'pg'
+
+class CLI
+  attr_reader :expense
+
+  def initialize
+    @expense = ExpenseData.new
+  end
+
+  def run(commands)
+    command = commands.first
+
+    if command == "list"
+      expense.list_expenses
+    elsif command == "add"
+      amount = commands[1]
+      memo = commands[2]
+      abort "You must provide an amount and memo." unless amount && memo
+      expense.add_expense(amount, memo)
+    else
+      display_help
+    end
+  end
+
+  def display_help
+    puts <<~HELP
+    An expense recording system
+
+    Commands:
+
+    add AMOUNT MEMO [DATE] - record a new expense
+    clear - delete all expenses
+    list - list all expenses
+    delete NUMBER - remove expense with id NUMBER
+    search QUERY - list expenses with a matching memo field
+    HELP
+  end
+end
+
+class ExpenseData
+  attr_reader :connection
+
+  def initialize
+    @connection = PG.connect(dbname: "expenses")
+  end
+
+  def list_expenses
+    results = connection.exec("SELECT * FROM expenses ORDER BY created_on ASC")
+
+    results.each do |tuple|
+      columns = [ tuple["id"].rjust(3),
+                  tuple["created_on"].rjust(10),
+                  tuple["amount"].rjust(12),
+                  tuple["memo"]]
+      puts columns.join(" | ")
+    end
+  end
+
+  def add_expense(amount, memo)
+    date = Date.today
+    sql = <<~UPDATE
+    INSERT INTO expenses (amount, memo, created_on)
+    VALUES ($1, $2, $3)
+    UPDATE
+    connection.exec_params(sql,[amount, memo, date])
+  end
+end
+
+CLI.new.run(ARGV)
