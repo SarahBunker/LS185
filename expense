@@ -1,5 +1,49 @@
 #! /usr/bin/env ruby
+
 require 'pg'
+
+class ExpenseData
+  attr_reader :connection
+
+  def initialize
+    @connection = PG.connect(dbname: "expenses")
+  end
+
+  def list_expenses(results = nil)
+    results = connection.exec("SELECT * FROM expenses ORDER BY created_on ASC") unless results
+    display_expenses(results)
+  end
+
+  def add_expense(amount, memo)
+    date = Date.today
+    sql = <<~UPDATE
+    INSERT INTO expenses (amount, memo, created_on)
+    VALUES ($1, $2, $3)
+    UPDATE
+    connection.exec_params(sql,[amount, memo, date])
+  end
+
+  def search_expense(query)
+    sql = <<~SQL
+    SELECT * FROM expenses
+    WHERE memo ILIKE $1
+    SQL
+    results = connection.exec_params(sql, ["%#{query}%"])
+    display_expenses(results)
+  end
+
+  private
+
+  def display_expenses(expenses)
+    expenses.each do |tuple|
+      columns = [ tuple["id"].rjust(3),
+                  tuple["created_on"].rjust(10),
+                  tuple["amount"].rjust(12),
+                  tuple["memo"]]
+      puts columns.join(" | ")
+    end
+  end
+end
 
 class CLI
   attr_reader :expense
@@ -18,6 +62,9 @@ class CLI
       memo = commands[2]
       abort "You must provide an amount and memo." unless amount && memo
       expense.add_expense(amount, memo)
+    elsif command == "search"
+      query = commands[1]
+      expense.search_expense(query)
     else
       display_help
     end
@@ -35,35 +82,6 @@ class CLI
     delete NUMBER - remove expense with id NUMBER
     search QUERY - list expenses with a matching memo field
     HELP
-  end
-end
-
-class ExpenseData
-  attr_reader :connection
-
-  def initialize
-    @connection = PG.connect(dbname: "expenses")
-  end
-
-  def list_expenses
-    results = connection.exec("SELECT * FROM expenses ORDER BY created_on ASC")
-
-    results.each do |tuple|
-      columns = [ tuple["id"].rjust(3),
-                  tuple["created_on"].rjust(10),
-                  tuple["amount"].rjust(12),
-                  tuple["memo"]]
-      puts columns.join(" | ")
-    end
-  end
-
-  def add_expense(amount, memo)
-    date = Date.today
-    sql = <<~UPDATE
-    INSERT INTO expenses (amount, memo, created_on)
-    VALUES ($1, $2, $3)
-    UPDATE
-    connection.exec_params(sql,[amount, memo, date])
   end
 end
 
