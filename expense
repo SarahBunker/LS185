@@ -1,6 +1,7 @@
 #! /usr/bin/env ruby
 
 require 'pg'
+require 'io/console'
 
 class ExpenseData
   attr_reader :connection
@@ -48,6 +49,11 @@ class ExpenseData
     display_expenses(result1)
   end
 
+  def delete_all_expenses
+    connection.exec_params("DELETE FROM expenses", [])
+    puts "All expenses have been deleted."
+  end
+
   private
 
   def display_expenses(expenses)
@@ -82,9 +88,17 @@ class CLI
       application.list_expenses
     when "search"
       application.search_expense(commands[1])
+    when "clear"
+      puts "This will remove all expenses. Are you sure? (y/n)"
+      answer = $stdin.getch
+      application.delete_all_expenses if answer == "y"
     else
       display_help
     end
+  end
+
+  def valid_input?(input, valid_inputs)
+    valid_inputs.include?(input.downcase)
   end
 
   def display_help
