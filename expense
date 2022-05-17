@@ -32,6 +32,22 @@ class ExpenseData
     display_expenses(results)
   end
 
+  def delete_expense(id)
+    sql1 = <<~SQL
+    SELECT * FROM expenses
+    WHERE id  = $1
+    SQL
+    result1 = connection.exec_params(sql1, [id])
+    abort "There is no expense with the id '#{id}'." unless result1.ntuples >= 1
+    sql2 = <<~SQL
+    DELETE FROM expenses
+    WHERE id = $1
+    SQL
+    connection.exec_params(sql2, [id])
+    puts "The following expense has been deleted:"
+    display_expenses(result1)
+  end
+
   private
 
   def display_expenses(expenses)
@@ -46,25 +62,26 @@ class ExpenseData
 end
 
 class CLI
-  attr_reader :expense
+  attr_reader :application
 
   def initialize
-    @expense = ExpenseData.new
+    @application = ExpenseData.new
   end
 
   def run(commands)
     command = commands.first
-
-    if command == "list"
-      expense.list_expenses
-    elsif command == "add"
+    case command
+    when "add"
       amount = commands[1]
       memo = commands[2]
       abort "You must provide an amount and memo." unless amount && memo
-      expense.add_expense(amount, memo)
-    elsif command == "search"
-      query = commands[1]
-      expense.search_expense(query)
+      application.add_expense(amount, memo)
+    when "delete"
+      application.delete_expense(commands[1])
+    when "list"
+      application.list_expenses
+    when "search"
+      application.search_expense(commands[1])
     else
       display_help
     end
