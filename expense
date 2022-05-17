@@ -10,8 +10,8 @@ class ExpenseData
     @connection = PG.connect(dbname: "expenses")
   end
 
-  def list_expenses(results = nil)
-    results = connection.exec("SELECT * FROM expenses ORDER BY created_on ASC") unless results
+  def list_expenses
+    results = connection.exec("SELECT * FROM expenses ORDER BY created_on ASC")
     display_expenses(results)
   end
 
@@ -50,13 +50,14 @@ class ExpenseData
   end
 
   def delete_all_expenses
-    connection.exec_params("DELETE FROM expenses", [])
+    connection.exec("DELETE FROM expenses")
     puts "All expenses have been deleted."
   end
 
   private
 
   def display_expenses(expenses)
+    display_count(expenses)
     expenses.each do |tuple|
       columns = [ tuple["id"].rjust(3),
                   tuple["created_on"].rjust(10),
@@ -64,6 +65,24 @@ class ExpenseData
                   tuple["memo"]]
       puts columns.join(" | ")
     end
+    display_total(expenses)
+  end
+
+  def display_count(expenses)
+    if expenses.ntuples == 0
+      puts "There are no expenses."
+    elsif expenses.ntuples == 1
+      puts "There is 1 expense"
+    else
+      puts "There are #{expenses.ntuples} expenses."
+    end
+  end
+
+  def display_total(expenses)
+    return if expenses.ntuples == 0
+    puts "--------------------------------------------------"
+    total = expenses.field_values("amount").map(&:to_f).sum
+    puts "Total #{total.to_s.rjust(25)}"
   end
 end
 
